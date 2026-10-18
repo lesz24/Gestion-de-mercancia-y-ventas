@@ -1,0 +1,17 @@
+# ============================================================
+# docker-compose.yml
+# Levanta todo el sistema con un solo comando: docker compose up
+# ============================================================
+services:
+  gestion:
+    build: .
+    container_name: gestion-mercancia
+    ports:
+      - "3000:3000"
+    volumes:
+      # Persistir la base de datos y los comprobantes fuera del contenedor
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+    environment:
+      - PORT=3000
+    restart: unless-stopped

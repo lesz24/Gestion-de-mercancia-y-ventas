@@ -1,0 +1,196 @@
+/* ============================================================
+   ESTILOS PROPIOS (CSS puro, complementa Tailwind)
+   Tailwind se carga desde su CDN y da las utilidades; acá
+   definimos con CSS normal las clases personalizadas de la app.
+   ============================================================ */
+
+/* ---- Botones del menú lateral ---- */
+.nav-btn {
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  color: #cbd5e1;
+  transition: background 0.15s ease;
+}
+.nav-btn:hover { background: #1e293b; }        /* hover = al pasar el mouse */
+.nav-btn.active {
+  background: #4f46e5;                          /* indigo-600 */
+  color: #fff;
+  font-weight: 600;
+}
+
+/* ---- Formularios ---- */
+.label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #64748b;
+  margin-bottom: 0.25rem;
+}
+.input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  background: #fff;
+}
+.input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #a5b4fc;
+  border-color: #a5b4fc;
+}
+.btn-primary, .btn-secondary, .btn-small {
+  border-radius: 0.5rem;
+  font-weight: 600;
+  transition: background 0.15s ease;
+  cursor: pointer;
+}
+.btn-primary {
+  background: #4f46e5;
+  color: #fff;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+}
+.btn-primary:hover { background: #4338ca; }
+.btn-secondary {
+  background: #e2e8f0;
+  color: #334155;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+}
+.btn-secondary:hover { background: #cbd5e1; }
+.btn-small {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  border-radius: 0.375rem;
+}
+.btn-edit   { background: #e0e7ff; color: #4338ca; }
+.btn-edit:hover   { background: #c7d2fe; }
+.btn-delete { background: #ffe4e6; color: #be123c; }
+.btn-delete:hover { background: #fecdd3; }
+.btn-pay    { background: #d1fae5; color: #047857; }
+.btn-pay:hover    { background: #a7f3d0; }
+.btn-view   { background: #e0f2fe; color: #0369a1; }
+.btn-view:hover   { background: #bae6fd; }
+
+/* ---- Tablas de datos ---- */
+.tabla { width: 100%; font-size: 0.875rem; border-collapse: collapse; }
+.tabla thead tr { background: #f8fafc; color: #64748b; text-align: left; }
+.tabla th { padding: 0.5rem 0.75rem; font-weight: 500; }
+.tabla td { padding: 0.5rem 0.75rem; border-top: 1px solid #f1f5f9; }
+.tabla tbody tr:hover { background: #f8fafc; }
+
+/* ---- Animación de las pantallas ---- */
+.view { animation: aparecer 0.25s ease; }
+@keyframes aparecer {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- Modales (ventanas emergentes) ---- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 50;
+}
+
+/* ---- Toast de notificación ---- */
+.toast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.15);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  z-index: 60;
+  transition: opacity 0.2s ease;
+}
+.toast.ok { background: #059669; }
+.toast.error { background: #e11d48; }
+
+/* ---- Etiquetas de estado de pago ---- */
+.estado {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.estado-pagado    { background: #d1fae5; color: #047857; }
+.estado-parcial   { background: #fef3c7; color: #b45309; }
+.estado-pendiente { background: #ffe4e6; color: #be123c; }
+
+/* ---- Botones de filtro por estado (Cuentas por Cobrar) ---- */
+.filtro-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: #fff;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+.filtro-btn:hover { background: #f1f5f9; }
+.filtro-btn.active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+.filtro-btn.active.filtro-pendiente { background: #be123c; border-color: #be123c; }
+.filtro-btn.active.filtro-parcial   { background: #b45309; border-color: #b45309; }
+.filtro-btn.active.filtro-pagado    { background: #059669; border-color: #059669; }
+.filtro-contador {
+  background: #f1f5f9;
+  color: #64748b;
+  padding: 0 0.375rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.filtro-btn.active .filtro-contador { background: rgba(255, 255, 255, 0.25); color: #fff; }
+
+/* ---- Zona de arrastrar archivos ---- */
+.zona-arrastre-activa {
+  border-color: #6366f1 !important;
+  background: #eef2ff;
+}
+
+/* ---- Barra de progreso de los abonos ---- */
+.progreso {
+  width: 100%;
+  height: 10px;
+  background: #e2e8f0;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+.progreso > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #4f46e5);
+  border-radius: 9999px;
+  transition: width 0.4s ease;
+}
+.progreso-completa > span { background: #059669; }
+
+/* ---- Tarjetas del dashboard ---- */
+.tarjeta {
+  background: #fff;
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+.tarjeta .valor { font-size: 1.6rem; font-weight: 700; color: #0f172a; }
+.tarjeta .titulo { font-size: 0.8rem; color: #64748b; }

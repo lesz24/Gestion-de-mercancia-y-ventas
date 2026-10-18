@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>📦 Gestión — Backoffice</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body class="bg-slate-100 text-slate-800 flex min-h-screen">
+
+  <aside class="w-64 bg-slate-900 text-slate-200 flex flex-col shrink-0">
+    <div class="p-5 border-b border-slate-700">
+      <h1 class="text-xl font-bold text-white">📦 Gestión</h1>
+      <p class="text-xs text-slate-400">Inventario · Ventas · Cobros</p>
+    </div>
+    <nav class="flex-1 p-3 space-y-1">
+      <button data-view="dashboard" class="nav-btn active">🏠 Inicio</button>
+      <button data-view="inventario" class="nav-btn">🏷️ Inventario</button>
+      <button data-view="venta" class="nav-btn">🛒 Nueva Venta</button>
+      <button data-view="cobros" class="nav-btn">💰 Cuentas por Cobrar</button>
+    </nav>
+    <div class="p-4 text-xs text-slate-500 border-t border-slate-700">
+      Servidor: <span id="estado-servidor" class="text-amber-400">verificando…</span><br/>
+      Tasa BCV: <span id="tasa-bcv-display" class="text-emerald-400">cargando…</span>
+    </div>
+  </aside>
+
+  <main class="flex-1 p-8 overflow-auto">
+
+    <!-- INICIO / DASHBOARD -->
+    <section id="view-dashboard" class="view">
+      <h2 class="text-2xl font-bold mb-6">Inicio</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="tarjetas-dashboard"></div>
+      <div class="mt-8 bg-white rounded-xl shadow p-6">
+        <h3 class="font-semibold mb-2">🗂️ ¿Cómo funciona ahora?</h3>
+        <ul class="list-disc pl-6 space-y-1 text-sm text-slate-600">
+          <li><b>Sin cuotas fijas:</b> cada venta tiene un total en USD que se llena con <b>abonos libres</b>.</li>
+          <li><b>Cuentas por Cobrar:</b> mirá la <b>barra de progreso</b> de cada cliente y registrá abonos cuando paguen.</li>
+          <li><b>Abono:</b> poné el monto que entrega el cliente (en <b>Bs o USD</b>, se convierte solo con la tasa BCV), una nota opcional y los comprobantes.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- INVENTARIO -->
+    <section id="view-inventario" class="view hidden">
+      <h2 class="text-2xl font-bold mb-6">🏷️ Inventario</h2>
+      <div class="bg-white rounded-xl shadow p-6 mb-6">
+        <h3 class="font-semibold mb-4" id="form-producto-titulo">Nuevo producto</h3>
+        <form id="form-producto" class="grid grid-cols-1 md:grid-cols-6 gap-3">
+          <input type="hidden" id="producto-id" />
+          <div class="md:col-span-2"><label class="label">Nombre *</label><input id="producto-nombre" class="input" required /></div>
+          <div><label class="label">Precio USD *</label><input id="producto-precio" type="number" min="0" step="0.01" class="input" required /></div>
+          <div><label class="label">Cuotas (ref.)</label><input id="producto-cuotas" type="number" min="1" value="1" class="input" /></div>
+          <div><label class="label">Cantidad</label><input id="producto-cantidad" type="number" min="0" value="0" class="input" /></div>
+          <div><label class="label">Stock</label><input id="producto-stock" type="number" min="0" value="0" class="input" /></div>
+          <div class="md:col-span-6 flex gap-2">
+            <button class="btn-primary" type="submit">💾 Guardar</button>
+            <button class="btn-secondary hidden" type="button" id="btn-cancelar-edicion">Cancelar</button>
+          </div>
+        </form>
+      </div>
+      <div class="bg-white rounded-xl shadow p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-semibold">Productos</h3>
+          <input id="buscar-producto" class="input w-64" placeholder="🔍 Buscar..." />
+        </div>
+        <table class="tabla">
+          <thead><tr><th>ID</th><th>Nombre</th><th>Precio USD</th><th>Cuotas (ref.)</th><th>Cantidad</th><th>Stock</th><th>Acciones</th></tr></thead>
+          <tbody id="tabla-productos"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- NUEVA VENTA -->
+    <section id="view-venta" class="view hidden">
+      <h2 class="text-2xl font-bold mb-6">🛒 Nueva Venta</h2>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 bg-white rounded-xl shadow p-6">
+          <form id="form-venta" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div><label class="label">Cliente *</label><input id="venta-cliente" class="input" required /></div>
+              <div><label class="label">Teléfono</label><input id="venta-telefono" class="input" /></div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div><label class="label">Vendedor</label><input id="venta-vendedor" class="input" list="lista-vendedores" /><datalist id="lista-vendedores"></datalist></div>
+              <div><label class="label">Producto *</label><select id="venta-producto" class="input" required></select></div>
+              <div><label class="label">Cantidad *</label><input id="venta-cantidad" type="number" min="1" value="1" class="input" required /></div>
+            </div>
+            <p class="text-xs text-slate-400">La venta se crea con el total a pagar. Después el cliente puede abonar libremente hasta completarlo.</p>
+          </form>
+        </div>
+        <div class="bg-white rounded-xl shadow p-6 h-fit">
+          <h3 class="font-semibold mb-4">Resumen</h3>
+          <div class="text-sm text-slate-500 mb-1">Total a pagar (USD)</div>
+          <div class="text-3xl font-bold" id="venta-total">0.00</div>
+          <div class="text-sm text-slate-500 mt-2">Aprox. en Bs</div>
+          <div class="text-xl font-semibold text-indigo-600" id="venta-total-bs">0.00</div>
+          <button class="btn-primary w-full mt-4" id="btn-guardar-venta" type="button">✅ Registrar venta</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- CUENTAS POR COBRAR -->
+    <section id="view-cobros" class="view hidden">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-2xl font-bold">💰 Cuentas por Cobrar</h2>
+      </div>
+      <div class="flex flex-wrap gap-2 mb-3" id="filtros-cobros">
+        <button class="filtro-btn active" data-filtro="todos">Todos <span class="filtro-contador" id="filtro-contador-todos">0</span></button>
+        <button class="filtro-btn filtro-pendiente" data-filtro="pendiente">⏳ Pendiente <span class="filtro-contador" id="filtro-contador-pendiente">0</span></button>
+        <button class="filtro-btn filtro-parcial" data-filtro="parcial">◐ Parcial <span class="filtro-contador" id="filtro-contador-parcial">0</span></button>
+        <button class="filtro-btn filtro-pagado" data-filtro="pagado">✔ Pagado <span class="filtro-contador" id="filtro-contador-pagado">0</span></button>
+      </div>
+      <p class="text-sm text-slate-500 mb-3" id="cobros-resumen"></p>
+      <div class="bg-white rounded-xl shadow p-6 overflow-x-auto">
+        <table class="tabla">
+          <thead><tr><th>#</th><th>Cliente</th><th>Vendedor</th><th>Producto</th><th>Total</th><th>Abonado</th><th>Saldo</th><th>Progreso</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <tbody id="tabla-cobros"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL: DETALLE DE VENTA + ABONOS -->
+  <div id="modal-venta" class="modal-overlay hidden">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-4xl p-6 max-h-[92vh] overflow-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-bold text-lg">🧾 Venta #<span id="detalle-venta-id"></span></h3>
+        <button id="cerrar-modal-venta" class="text-slate-400 hover:text-slate-700 text-xl">✕</button>
+      </div>
+      <p class="text-sm text-slate-500 mb-4" id="detalle-venta-info"></p>
+
+      <!-- Barra de progreso -->
+      <div class="bg-slate-50 rounded-xl p-4 mb-4">
+        <div class="flex justify-between items-end mb-2">
+          <div>
+            <span class="text-2xl font-bold text-emerald-600" id="detalle-abonado">$0.00</span>
+            <span class="text-slate-400">de</span>
+            <span class="font-semibold" id="detalle-total">$0.00</span>
+          </div>
+          <div class="text-right">
+            <div class="text-xs text-slate-400">Saldo pendiente</div>
+            <div class="font-bold text-rose-500" id="detalle-saldo">$0.00</div>
+          </div>
+        </div>
+        <div class="progreso"><span id="detalle-barra" style="width:0%"></span></div>
+        <div class="text-xs text-slate-400 mt-1 text-right" id="detalle-porcentaje">0%</div>
+      </div>
+
+      <div class="flex justify-between items-center mb-2">
+        <h4 class="font-semibold text-sm">Abonos registrados</h4>
+        <button class="btn-primary" id="btn-nuevo-abono">➕ Registrar abono</button>
+      </div>
+      <table class="tabla mb-4">
+        <thead><tr><th>#</th><th>Fecha</th><th>USD</th><th>Bs</th><th>Tasa</th><th>Método</th><th>Nota</th><th></th></tr></thead>
+        <tbody id="tabla-abonos"></tbody>
+      </table>
+      <div id="contenedor-comprobantes" class="grid grid-cols-4 gap-3"></div>
+    </div>
+  </div>
+
+  <!-- MODAL: REGISTRAR ABONO -->
+  <div id="modal-abono" class="modal-overlay hidden">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-6 max-h-[92vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-bold text-lg">💳 Registrar abono</h3>
+        <button id="cerrar-modal-abono" class="text-slate-400 hover:text-slate-700 text-xl">✕</button>
+      </div>
+      <p class="text-sm text-slate-500 mb-4">Saldo pendiente: <b class="text-rose-500" id="abono-saldo"></b></p>
+      <form id="form-abono">
+        <div class="grid grid-cols-2 gap-3 mb-3">
+          <div>
+            <label class="label">Monto en USD</label>
+            <input id="abono-usd" type="number" min="0" step="0.01" class="input" />
+          </div>
+          <div>
+            <label class="label">Monto en Bs</label>
+            <input id="abono-bs" type="number" min="0" step="0.01" class="input" />
+          </div>
+          <div class="col-span-2 text-xs text-slate-400 -mt-1">Escribí en cualquiera y el otro se calcula solo con la tasa BCV (<span id="abono-tasa-label">—</span>).</div>
+          <div class="col-span-2">
+            <label class="label">Método de pago</label>
+            <select id="abono-metodo" class="input">
+              <option value="transferencia">Transferencia</option>
+              <option value="efectivo">Efectivo</option>
+              <option value="pago_movil">Pago móvil</option>
+              <option value="usdt">USDT</option>
+              <option value="otro">Otro</option>
+            </select>
+          </div>
+          <div class="col-span-2">
+            <label class="label">Nota (opcional)</label>
+            <textarea id="abono-nota" class="input" rows="2" placeholder="Ej: abonó la mitad, queda el resto..."></textarea>
+          </div>
+        </div>
+
+        <label class="label">Comprobantes (opcional — si agregás uno, el nombre es obligatorio)</label>
+        <div id="zona-archivo" class="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center cursor-pointer hover:border-indigo-400 transition">
+          <p class="text-slate-500 text-sm">🖼️ Arrastrá las capturas acá o <span class="text-indigo-600 font-semibold">hacé clic para elegir</span></p>
+        </div>
+        <input type="file" id="input-archivos" accept="image/*" multiple class="hidden" />
+        <div id="lista-archivos" class="space-y-3 mt-3"></div>
+
+        <button class="btn-primary w-full mt-5" type="submit">💾 Guardar abono</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="/js/app.js"></script>
+</body>
+</html>
