@@ -194,3 +194,83 @@
 }
 .tarjeta .valor { font-size: 1.6rem; font-weight: 700; color: #0f172a; }
 .tarjeta .titulo { font-size: 0.8rem; color: #64748b; }
+
+/* ============================================================
+   TEMA OSCURO (se activa con la clase .dark en <html>)
+   Selectores con especificidad mayor (html.dark .clase) para
+   poder sobreescribir las utilidades de Tailwind sin !important.
+   ============================================================ */
+html.dark { color-scheme: dark; }
+
+/* Fondo general y texto */
+html.dark .bg-slate-100 { background-color: #0f172a; }
+html.dark .text-slate-800 { color: #e2e8f0; }
+html.dark .bg-white { background-color: #1e293b; }
+html.dark .bg-slate-50 { background-color: #334155; }
+html.dark .bg-slate-900 { background-color: #020617; }   /* barra lateral */
+
+/* Textos secundarios */
+html.dark .text-slate-600 { color: #cbd5e1; }
+html.dark .text-slate-500 { color: #94a3b8; }
+html.dark .text-slate-400 { color: #94a3b8; }
+html.dark .hover\:text-slate-700:hover { color: #e2e8f0; }
+
+/* Bordes */
+html.dark .border-slate-300 { border-color: #475569; }
+
+/* Textos de color (iluminarlos para que se lean bien) */
+html.dark .text-indigo-600 { color: #a5b4fc; }
+html.dark .text-emerald-600 { color: #34d399; }
+
+/* Tablas */
+html.dark .tabla thead tr { background: #334155; color: #cbd5e1; }
+html.dark .tabla td { border-top-color: #334155; }
+html.dark .tabla tbody tr:hover { background: #334155; }
+
+/* Formularios */
+html.dark .input { background-color: #0f172a; border-color: #475569; color: #e2e8f0; }
+html.dark .input::placeholder { color: #64748b; }
+html.dark option { background-color: #1e293b; color: #e2e8f0; }
+
+/* Botones */
+html.dark .btn-secondary { background-color: #334155; color: #e2e8f0; }
+html.dark .btn-secondary:hover { background-color: #475569; }
+html.dark .btn-edit   { background-color: #312e81; color: #c7d2fe; }
+html.dark .btn-edit:hover   { background-color: #4338ca; }
+html.dark .btn-delete { background-color: #4c0519; color: #fda4af; }
+html.dark .btn-delete:hover { background-color: #881337; }
+html.dark .btn-pay    { background-color: #064e3b; color: #a7f3d0; }
+html.dark .btn-pay:hover    { background-color: #065f46; }
+html.dark .btn-view   { background-color: #083344; color: #7dd3fc; }
+html.dark .btn-view:hover   { background-color: #0c4a6e; }
+
+/* Etiquetas de estado */
+html.dark .estado-pagado    { background-color: #052e16; color: #86efac; }
+html.dark .estado-parcial   { background-color: #422006; color: #fcd34d; }
+html.dark .estado-pendiente { background-color: #4c0519; color: #fda4af; }
+
+/* Filtros (Inicio y Cuentas por Cobrar) */
+html.dark .filtro-btn { background-color: #1e293b; border-color: #475569; color: #cbd5e1; }
+html.dark .filtro-btn:hover { background-color: #334155; }
+html.dark .filtro-btn.active { background-color: #4f46e5; border-color: #4f46e5; color: #fff; }
+html.dark .filtro-btn.active.filtro-pendiente { background-color: #be123c; border-color: #be123c; }
+html.dark .filtro-btn.active.filtro-parcial   { background-color: #b45309; border-color: #b45309; }
+html.dark .filtro-btn.active.filtro-pagado    { background-color: #059669; border-color: #059669; }
+html.dark .filtro-contador { background-color: #334155; color: #cbd5e1; }
+
+/* Barra de progreso */
+html.dark .progreso { background-color: #334155; }
+
+/* Tarjetas del dashboard */
+html.dark .tarjeta { background-color: #1e293b; }
+html.dark .tarjeta .valor { color: #f1f5f9; }
+html.dark .tarjeta .titulo { color: #94a3b8; }
+
+/* Zona de arrastre de archivos */
+html.dark .zona-arrastre-activa { background-color: #312e81; }
+
+/* Modal: un poco más de oscuridad en el fondo */
+html.dark .modal-overlay { background: rgba(2, 6, 23, 0.75); }
+
+/* Botón de tema (separa visualmente del menú) */
+#btn-tema { border-top: 1px dashed #334155; border-radius: 0 0 0.5rem 0.5rem; margin-top: 10px; padding-top: 12px; }

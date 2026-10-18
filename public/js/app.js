@@ -29,20 +29,43 @@ async function cargarTasa() {
   } catch { $('#tasa-bcv-display').textContent = 'Error'; }
 }
 
-// --- Navegación ---
+// --- Tema claro / oscuro ---
+function aplicarTema(tema) {
+  const oscuro = tema === 'oscuro';
+  document.documentElement.classList.toggle('dark', oscuro);
+  try { localStorage.setItem('tema', oscuro ? 'oscuro' : 'claro'); } catch (e) {}
+  const btn = $('#btn-tema');
+  if (btn) btn.textContent = oscuro ? '☀️ Modo claro' : '🌙 Modo oscuro';
+}
+$('#btn-tema').addEventListener('click', () =>
+  aplicarTema(document.documentElement.classList.contains('dark') ? 'claro' : 'oscuro'));
+// Sincronizar la etiqueta con el tema ya aplicado desde el <head>
+aplicarTema(document.documentElement.classList.contains('dark') ? 'oscuro' : 'claro');
+
+// --- Navegación (con hash en la URL para sobrevivir recargas) ---
+const VISTAS = ['dashboard', 'inventario', 'venta', 'cobros'];
+
+function irA(vista, { guardar = true } = {}) {
+  if (!VISTAS.includes(vista)) vista = 'dashboard';
+  document.querySelectorAll('.nav-btn').forEach((b) => b.classList.toggle('active', b.dataset.view === vista));
+  document.querySelectorAll('.view').forEach((v) => v.classList.add('hidden'));
+  $('#view-' + vista).classList.remove('hidden');
+  // Guardar la vista actual en la URL (sin crear historial nuevo)
+  if (guardar) history.replaceState(null, '', '#' + vista);
+  if (vista === 'dashboard') cargarDashboard();
+  if (vista === 'inventario') cargarProductos();
+  if (vista === 'venta') cargarFormularioVenta();
+  if (vista === 'cobros') cargarCobros();
+}
+
 document.querySelectorAll('.nav-btn').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.nav-btn').forEach((b) => b.classList.remove('active'));
-    btn.classList.add('active');
-    document.querySelectorAll('.view').forEach((v) => v.classList.add('hidden'));
-    $('#view-' + btn.dataset.view).classList.remove('hidden');
-    const v = btn.dataset.view;
-    if (v === 'dashboard') cargarDashboard();
-    if (v === 'inventario') cargarProductos();
-    if (v === 'venta') cargarFormularioVenta();
-    if (v === 'cobros') cargarCobros();
-  });
+  // Los botones sin data-view (como el de tema) no navegan
+  if (!btn.dataset.view) return;
+  btn.addEventListener('click', () => irA(btn.dataset.view));
 });
+
+// Al recargar o abrir un link con #, volver a la sección guardada
+window.addEventListener('hashchange', () => irA(location.hash.slice(1), { guardar: false }));
 
 // ============================================================
 // DASHBOARD
@@ -316,21 +339,37 @@ function abrirModalAbono(saldo) {
   $('#abono-tasa-label').textContent = tasaBCV ? `Bs ${tasaBCV.toLocaleString()}` : 'sin tasa';
   $('#abono-usd').value = saldo.toFixed(2);
   $('#abono-bs').value = tasaBCV ? (saldo * tasaBCV).toFixed(2) : '';
+  $('#abono-usdt').value = saldo.toFixed(2); // 1 USDT = 1 USD
   $('#abono-nota').value = '';
   $('#lista-archivos').innerHTML = '';
   $('#modal-abono').classList.remove('hidden');
 }
 $('#cerrar-modal-abono').addEventListener('click', () => $('#modal-abono').classList.add('hidden'));
 
-// Conversión bidireccional USD <-> Bs
-$('#abono-usd').addEventListener('input', () => {
-  if (!tasaBCV) return;
-  $('#abono-bs').value = (Number($('#abono-usd').value || 0) * tasaBCV).toFixed(2);
-});
-$('#abono-bs').addEventListener('input', () => {
-  if (!tasaBCV) return;
-  $('#abono-usd').value = (Number($('#abono-bs').value || 0) / tasaBCV).toFixed(2);
-});
+// Conversión entre los tres montos:
+//   USD <-> Bs   se convierte con la tasa BCV
+//   USD <-> USDT es 1:1 (dólar digital)
+function sincronizarDesde(campo) {
+  const usdEl = $('#abono-usd'), bsEl = $('#abono-bs'), usdtEl = $('#abono-usdt');
+  let usd;
+  if (campo === 'usd') {
+    usd = Number(usdEl.value || 0);
+    bsEl.value = tasaBCV ? (usd * tasaBCV).toFixed(2) : '';
+    usdtEl.value = usd ? usd.toFixed(2) : '';
+  } else if (campo === 'bs') {
+    if (!tasaBCV) return;
+    usd = Number(bsEl.value || 0) / tasaBCV;
+    usdEl.value = usd.toFixed(2);
+    usdtEl.value = usd ? usd.toFixed(2) : '';
+  } else if (campo === 'usdt') {
+    usd = Number(usdtEl.value || 0);
+    usdEl.value = usd.toFixed(2);
+    bsEl.value = tasaBCV ? (usd * tasaBCV).toFixed(2) : '';
+  }
+}
+$('#abono-usd').addEventListener('input', () => sincronizarDesde('usd'));
+$('#abono-bs').addEventListener('input', () => sincronizarDesde('bs'));
+$('#abono-usdt').addEventListener('input', () => sincronizarDesde('usdt'));
 
 // Comprobantes (nombre obligatorio)
 const zona = $('#zona-archivo');
@@ -390,7 +429,11 @@ $('#form-abono').addEventListener('submit', async (e) => {
 });
 
 // --- Arranque ---
-cargarTasa().then(actualizarResumenVenta);
-cargarDashboard();
-cargarProductos();
+const vistaInicial = VISTAS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'dashboard';
+irA(vistaInicial, { guardar: false });
+cargarTasa().then(() => {
+  actualizarResumenVenta();
+  // La tasa llega después del primer render: refrescar el dashboard si está visible
+  if (!$('#view-dashboard').classList.contains('hidden')) cargarDashboard();
+});
 api.get('/api/dashboard').then(() => { $('#estado-servidor').textContent = 'conectado ✔'; $('#estado-servidor').className = 'text-emerald-400'; });

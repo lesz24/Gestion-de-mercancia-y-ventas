@@ -44,13 +44,16 @@ function recalcularEstado(ventaId) {
 // 1) RUTAS DE API (siempre PRIMERO, antes del catch-all)
 // ============================================================
 
-// --- Tasa BCV desde DolarApi.com (con límite de tiempo) ---
+// --- Tasa BCV desde DolarApi.com (oficial, con límite de tiempo) ---
 app.get('/api/tasa', async (c) => {
   try {
-    const r = await fetch('https://dolarapi.com/v1/dolares/blue', { signal: AbortSignal.timeout(6000) });
+    const r = await fetch('https://ve.dolarapi.com/v1/dolares/oficial', { signal: AbortSignal.timeout(6000) });
     if (!r.ok) throw new Error('respuesta ' + r.status);
     const data = await r.json();
-    return c.json({ tasa: data.venta, compra: data.compra, fecha: data.fechaActualizacion });
+    // El oficial trae "promedio" (compra/venta pueden venir null)
+    const tasa = data.promedio ?? data.venta ?? data.compra ?? null;
+    const compra = data.compra ?? null;
+    return c.json({ tasa, compra, fecha: data.fechaActualizacion, fuente: data.fuente || 'oficial' });
   } catch {
     // Si DolarApi no responde, devolvemos tasa null (la app sigue funcionando)
     return c.json({ tasa: null, compra: null, fecha: null });
