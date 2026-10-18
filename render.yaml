@@ -1,0 +1,22 @@
+# ============================================================
+# render.yaml — Blueprint de Render
+# Despliegue con Docker + disco persistente (plan Starter+).
+# El disco guarda la base de datos (data/) y las imágenes de
+# comprobantes (uploads/) para que NO se borren al redeployar.
+# ============================================================
+services:
+  - type: web
+    name: gestion-mercancia-ventas
+    runtime: docker
+    plan: starter
+    healthCheckPath: /
+    envVars:
+      # Ambas carpetas viven dentro del disco persistente
+      - key: DATA_DIR
+        value: /app/storage/data
+      - key: UPLOADS_DIR
+        value: /app/storage/uploads
+    disk:
+      name: gestion-storage
+      mountPath: /app/storage
+      sizeGB: 1

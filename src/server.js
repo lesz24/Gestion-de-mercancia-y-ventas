@@ -14,10 +14,12 @@ import { randomBytes } from 'crypto';
 import db from './db.js';
 
 const app = new Hono();
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 const PUBLIC_DIR = join(import.meta.dir, '..', 'public');
-const UPLOADS_DIR = join(import.meta.dir, '..', 'uploads');
+// Imágenes de comprobantes: por defecto ../uploads (local).
+// En Render se sobreescribe con UPLOADS_DIR apuntando al disco persistente.
+const UPLOADS_DIR = process.env.UPLOADS_DIR || join(import.meta.dir, '..', 'uploads');
 mkdirSync(UPLOADS_DIR, { recursive: true });
 
 // --- Utilidades -------------------------------------------------

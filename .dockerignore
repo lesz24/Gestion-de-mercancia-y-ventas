@@ -1,0 +1,10 @@
+# No copiar al contenedor lo que no hace falta
+node_modules
+.git
+.gitignore
+data
+uploads
+datos
+render.yaml
+docker-compose.yml
+*.log

@@ -1,0 +1,20 @@
+# Dependencias
+node_modules/
+
+# Base de datos local (en Render vive en el disco persistente)
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Imágenes de comprobantes subidas
+uploads/
+
+# Excel original (el cliente ya no lo usa)
+datos/
+
+# Sistema / editores
+.DS_Store
+Thumbs.db
+*.log
+.env
