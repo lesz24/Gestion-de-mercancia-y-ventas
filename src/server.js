@@ -169,6 +169,7 @@ app.post('/api/ventas/:id/abonos', async (c) => {
   const formData = await c.req.formData();
   const montoUsd = Number(formData.get('monto_usd'));
   const montoBs = formData.get('monto_bs') ? Number(formData.get('monto_bs')) : null;
+  const montoUsdt = formData.get('monto_usdt') ? Number(formData.get('monto_usdt')) : null;
   const tasaBcv = formData.get('tasa_bcv') ? Number(formData.get('tasa_bcv')) : null;
   const metodoPago = formData.get('metodo_pago') || '';
   const nota = formData.get('nota') || '';
@@ -201,8 +202,9 @@ app.post('/api/ventas/:id/abonos', async (c) => {
   }
 
   db.exec('BEGIN');
-  const vr = db.query('INSERT INTO Pagos (venta_id, monto_usd, monto_bs, tasa_bcv, metodo_pago, nota) VALUES (?,?,?,?,?,?)')
-    .run(ventaId, Number(montoUsd.toFixed(4)), montoBs, tasaBcv, metodoPago, nota);
+  const usdtLimpio = Number.isFinite(montoUsdt) && montoUsdt > 0 ? montoUsdt : null;
+  const vr = db.query('INSERT INTO Pagos (venta_id, monto_usd, monto_bs, monto_usdt, tasa_bcv, metodo_pago, nota) VALUES (?,?,?,?,?,?,?)')
+    .run(ventaId, Number(montoUsd.toFixed(4)), montoBs, usdtLimpio, tasaBcv, metodoPago, nota);
   for (const comp of comprobantes) {
     db.query('INSERT INTO Comprobantes_Pago (pago_id, nombre, descripcion, ruta_imagen_url) VALUES (?,?,?,?)')
       .run(vr.lastInsertRowid, comp.nombre, comp.descripcion, comp.ruta);

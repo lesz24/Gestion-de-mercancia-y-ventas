@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS Pagos (
     venta_id    INTEGER NOT NULL REFERENCES Ventas(id) ON DELETE CASCADE,
     monto_usd   REAL    NOT NULL,                 -- monto en USD (se guarda en USD)
     monto_bs    REAL,                             -- equivalente en Bs al momento de abonar
+    monto_usdt  REAL,                             -- monto en USDT (carga manual, no se calcula)
     tasa_bcv    REAL,                             -- tasa BCV usada en ese abono
     fecha_pago  TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
     metodo_pago TEXT    DEFAULT '',

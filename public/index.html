@@ -173,7 +173,7 @@
         <button class="btn-primary" id="btn-nuevo-abono">➕ Registrar abono</button>
       </div>
       <table class="tabla mb-4">
-        <thead><tr><th>#</th><th>Fecha</th><th>USD</th><th>Bs</th><th>Tasa</th><th>Método</th><th>Nota</th><th></th></tr></thead>
+        <thead><tr><th>#</th><th>Fecha</th><th>USD</th><th>Bs</th><th>USDT</th><th>Tasa</th><th>Método</th><th>Nota</th><th></th></tr></thead>
         <tbody id="tabla-abonos"></tbody>
       </table>
       <div id="contenedor-comprobantes" class="grid grid-cols-4 gap-3"></div>
@@ -202,7 +202,7 @@
             <label class="label">Monto en USDT</label>
             <input id="abono-usdt" type="number" min="0" step="0.01" class="input" />
           </div>
-          <div class="col-span-3 text-xs text-slate-400 -mt-1">Escribí en cualquiera y las demás se calculan solas: Bs con la tasa BCV (<span id="abono-tasa-label">—</span>) y USDT al valor 1:1 del dólar.</div>
+          <div class="col-span-3 text-xs text-slate-400 -mt-1">USD y Bs se calculan entre sí con la tasa BCV (<span id="abono-tasa-label">—</span>). El monto en USDT se carga manualmente y no afecta a los demás.</div>
           <div class="col-span-3">
             <label class="label">Método de pago</label>
             <select id="abono-metodo" class="input">

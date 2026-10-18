@@ -23,6 +23,16 @@ const schema = readFileSync(join(import.meta.dir, '..', 'database', 'schema.sql'
 db.exec(schema);
 
 // ------------------------------------------------------------
+// MIGRACIONES para bases existentes (CREATE TABLE IF NOT EXISTS
+// no agrega columnas nuevas a tablas ya creadas).
+// ------------------------------------------------------------
+const columnasPagos = db.query('PRAGMA table_info(Pagos)').all().map((c) => c.name);
+if (!columnasPagos.includes('monto_usdt')) {
+  db.exec('ALTER TABLE Pagos ADD COLUMN monto_usdt REAL');
+  console.log('  🔧 Migración: Pagos.monto_usdt agregada.');
+}
+
+// ------------------------------------------------------------
 // INVENTARIO INICIAL (seed)
 // Si la base está vacía (primer arranque, disco nuevo en Render),
 // se cargan los 4 productos. Solo corre si no hay NINGÚN producto.

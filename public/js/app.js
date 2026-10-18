@@ -289,6 +289,7 @@ async function verVenta(id) {
         <td class="text-xs text-slate-500">${esc(p.fecha_pago)}</td>
         <td class="text-emerald-600 font-semibold">$ ${money(p.monto_usd)}</td>
         <td>${p.monto_bs != null ? money(p.monto_bs) : '—'}</td>
+        <td>${p.monto_usdt != null ? money(p.monto_usdt) : '—'}</td>
         <td class="text-xs">${p.tasa_bcv != null ? Number(p.tasa_bcv).toFixed(2) : '—'}</td>
         <td>${esc(p.metodo_pago) || '—'}</td>
         <td class="text-xs text-slate-500">${esc(p.nota) || '—'}</td>
@@ -297,7 +298,7 @@ async function verVenta(id) {
           <button class="btn-small btn-pay" data-borrar-abono="${p.id}">🗑️</button>
         </td>
       </tr>`).join('')
-    : `<tr><td colspan="8" class="text-center text-slate-400 py-4">Todavía no hay abonos</td></tr>`;
+    : `<tr><td colspan="9" class="text-center text-slate-400 py-4">Todavía no hay abonos</td></tr>`;
 
   $('#contenedor-comprobantes').innerHTML = '';
 
@@ -339,37 +340,28 @@ function abrirModalAbono(saldo) {
   $('#abono-tasa-label').textContent = tasaBCV ? `Bs ${tasaBCV.toLocaleString()}` : 'sin tasa';
   $('#abono-usd').value = saldo.toFixed(2);
   $('#abono-bs').value = tasaBCV ? (saldo * tasaBCV).toFixed(2) : '';
-  $('#abono-usdt').value = saldo.toFixed(2); // 1 USDT = 1 USD
+  $('#abono-usdt').value = ''; // USDT: carga manual, no se calcula
   $('#abono-nota').value = '';
   $('#lista-archivos').innerHTML = '';
   $('#modal-abono').classList.remove('hidden');
 }
 $('#cerrar-modal-abono').addEventListener('click', () => $('#modal-abono').classList.add('hidden'));
 
-// Conversión entre los tres montos:
-//   USD <-> Bs   se convierte con la tasa BCV
-//   USD <-> USDT es 1:1 (dólar digital)
+// Conversión entre USD y Bs con la tasa BCV.
+// El campo USDT es totalmente independiente: se carga manualmente
+// y no modifica (ni es modificado por) los otros dos.
 function sincronizarDesde(campo) {
-  const usdEl = $('#abono-usd'), bsEl = $('#abono-bs'), usdtEl = $('#abono-usdt');
-  let usd;
+  const usdEl = $('#abono-usd'), bsEl = $('#abono-bs');
   if (campo === 'usd') {
-    usd = Number(usdEl.value || 0);
+    const usd = Number(usdEl.value || 0);
     bsEl.value = tasaBCV ? (usd * tasaBCV).toFixed(2) : '';
-    usdtEl.value = usd ? usd.toFixed(2) : '';
   } else if (campo === 'bs') {
     if (!tasaBCV) return;
-    usd = Number(bsEl.value || 0) / tasaBCV;
-    usdEl.value = usd.toFixed(2);
-    usdtEl.value = usd ? usd.toFixed(2) : '';
-  } else if (campo === 'usdt') {
-    usd = Number(usdtEl.value || 0);
-    usdEl.value = usd.toFixed(2);
-    bsEl.value = tasaBCV ? (usd * tasaBCV).toFixed(2) : '';
+    usdEl.value = (Number(bsEl.value || 0) / tasaBCV).toFixed(2);
   }
 }
 $('#abono-usd').addEventListener('input', () => sincronizarDesde('usd'));
 $('#abono-bs').addEventListener('input', () => sincronizarDesde('bs'));
-$('#abono-usdt').addEventListener('input', () => sincronizarDesde('usdt'));
 
 // Comprobantes (nombre obligatorio)
 const zona = $('#zona-archivo');
@@ -410,6 +402,7 @@ $('#form-abono').addEventListener('submit', async (e) => {
   const fd = new FormData();
   fd.append('monto_usd', montoUsd);
   fd.append('monto_bs', $('#abono-bs').value || '');
+  fd.append('monto_usdt', $('#abono-usdt').value || '');
   fd.append('tasa_bcv', tasaBCV || '');
   fd.append('metodo_pago', $('#abono-metodo').value);
   fd.append('nota', $('#abono-nota').value.trim());
