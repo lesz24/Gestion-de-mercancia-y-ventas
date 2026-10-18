@@ -30,7 +30,14 @@
 
     <!-- INICIO / DASHBOARD -->
     <section id="view-dashboard" class="view">
-      <h2 class="text-2xl font-bold mb-6">Inicio</h2>
+      <h2 class="text-2xl font-bold mb-4">Inicio</h2>
+      <div class="flex flex-wrap gap-2 mb-4" id="filtros-periodo">
+        <button class="filtro-btn" data-periodo="hoy">📅 Hoy</button>
+        <button class="filtro-btn" data-periodo="semana">📅 Esta semana</button>
+        <button class="filtro-btn" data-periodo="mes">📅 Este mes</button>
+        <button class="filtro-btn active" data-periodo="todo">📜 Todo (histórico)</button>
+      </div>
+      <p class="text-xs text-slate-400 mb-4">Ventas y abonos muestran el período elegido. Inventario y por cobrar siempre son los totales actuales.</p>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="tarjetas-dashboard"></div>
       <div class="mt-8 bg-white rounded-xl shadow p-6">
         <h3 class="font-semibold mb-2">🗂️ ¿Cómo funciona ahora?</h3>
@@ -128,7 +135,10 @@
     <div class="bg-white rounded-xl shadow-xl w-full max-w-4xl p-6 max-h-[92vh] overflow-auto">
       <div class="flex justify-between items-center mb-4">
         <h3 class="font-bold text-lg">🧾 Venta #<span id="detalle-venta-id"></span></h3>
-        <button id="cerrar-modal-venta" class="text-slate-400 hover:text-slate-700 text-xl">✕</button>
+        <div class="flex items-center gap-3">
+          <button id="btn-eliminar-venta" class="btn-small btn-delete" title="Eliminar esta venta">🗑️ Eliminar venta</button>
+          <button id="cerrar-modal-venta" class="text-slate-400 hover:text-slate-700 text-xl">✕</button>
+        </div>
       </div>
       <p class="text-sm text-slate-500 mb-4" id="detalle-venta-info"></p>
 

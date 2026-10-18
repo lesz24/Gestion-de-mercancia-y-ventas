@@ -47,8 +47,10 @@ document.querySelectorAll('.nav-btn').forEach((btn) => {
 // ============================================================
 // DASHBOARD
 // ============================================================
+let periodoDashboard = 'todo';
+
 async function cargarDashboard() {
-  const d = await api.get('/api/dashboard');
+  const d = await api.get('/api/dashboard?periodo=' + encodeURIComponent(periodoDashboard));
   $('#tarjetas-dashboard').innerHTML = `
     <div class="tarjeta"><p class="titulo">Productos</p><p class="valor">${d.total_productos}</p></div>
     <div class="tarjeta"><p class="titulo">Unidades en stock</p><p class="valor">${d.unidades_en_stock}</p></div>
@@ -59,6 +61,16 @@ async function cargarDashboard() {
     <div class="tarjeta"><p class="titulo">Abonado Bs</p><p class="valor" style="color:#0369a1">${money(d.pagado_bs)}</p></div>
     <div class="tarjeta"><p class="titulo">Tasa BCV actual</p><p class="valor" style="color:#4f46e5">${tasaBCV ? tasaBCV.toLocaleString() : '—'}</p></div>`;
 }
+
+// Filtro de período del dashboard
+document.querySelectorAll('#filtros-periodo .filtro-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#filtros-periodo .filtro-btn').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    periodoDashboard = btn.dataset.periodo;
+    cargarDashboard();
+  });
+});
 
 // ============================================================
 // INVENTARIO
@@ -193,14 +205,28 @@ function renderCobros() {
           <div class="text-xs text-slate-400 mt-1">${v.progreso.toFixed(0)}% · ${v.num_abonos} abono(s)</div>
         </td>
         <td><span class="estado estado-${v.estado_pago}">${v.estado_pago}</span></td>
-        <td class="space-x-1">
+        <td class="space-x-1 whitespace-nowrap">
           <button class="btn-small btn-view" data-ver="${v.id}">🧾 Ver / Abonar</button>
+          <button class="btn-small btn-delete" data-eliminar="${v.id}" title="Eliminar venta">🗑️</button>
         </td>
       </tr>`;
     }).join('')
     : `<tr><td colspan="10" class="text-center text-slate-400 py-8">${vacio}</td></tr>`;
 
   document.querySelectorAll('[data-ver]').forEach((b) => b.addEventListener('click', () => verVenta(b.dataset.ver)));
+  document.querySelectorAll('[data-eliminar]').forEach((b) => b.addEventListener('click', () => eliminarVenta(b.dataset.eliminar)));
+}
+
+// Eliminar una venta registrada por error (devuelve el stock)
+async function eliminarVenta(id) {
+  const v = cobrosTodas.find((x) => String(x.id) === String(id));
+  const nombre = v ? `${v.cliente_nombre} — ${v.producto_nombre}` : `#${id}`;
+  if (!confirm(`¿Eliminar la venta de ${nombre}?\n\nSe borrarán sus abonos y comprobantes, y la mercancía volverá al inventario. Esta acción no se puede deshacer.`)) return;
+  try {
+    await api.send('/api/ventas/' + id, 'DELETE');
+    toast('Venta eliminada — stock devuelto ✔');
+    cargarCobros(); cargarDashboard();
+  } catch (e) { toast(e.message, 'error'); }
 }
 
 // Botones de filtro por estado
@@ -272,6 +298,11 @@ async function verVenta(id) {
   $('#modal-venta').classList.remove('hidden');
 }
 $('#cerrar-modal-venta').addEventListener('click', () => $('#modal-venta').classList.add('hidden'));
+$('#btn-eliminar-venta').addEventListener('click', async () => {
+  if (!ventaActual) return;
+  $('#modal-venta').classList.add('hidden');
+  await eliminarVenta(ventaActual.id);
+});
 $('#btn-nuevo-abono').addEventListener('click', () => abrirModalAbono(ventaActual.saldo_usd));
 
 // ============================================================

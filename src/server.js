@@ -8,8 +8,8 @@
 // ============================================================
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
-import { join, extname } from 'path';
-import { mkdirSync, writeFileSync, readFileSync } from 'fs';
+import { join, extname, basename } from 'path';
+import { mkdirSync, writeFileSync, readFileSync, unlinkSync } from 'fs';
 import { randomBytes } from 'crypto';
 import db from './db.js';
 
@@ -225,16 +225,52 @@ app.get('/api/abonos/:id/comprobantes', (c) => {
 });
 
 // --- Dashboard ---------------------------------------------------
+// Devuelve el inicio del período en formato 'YYYY-MM-DD HH:MM:SS'
+// (local, igual que lo que guarda SQLite con datetime('now','localtime')).
+function inicioDePeriodo(periodo) {
+  if (!periodo || periodo === 'todo') return null;
+  const d = new Date();
+  if (periodo === 'hoy') {
+    d.setHours(0, 0, 0, 0);
+  } else if (periodo === 'semana') {
+    // Semana desde el lunes
+    const diasDesdeLunes = (d.getDay() + 6) % 7;
+    d.setDate(d.getDate() - diasDesdeLunes);
+    d.setHours(0, 0, 0, 0);
+  } else if (periodo === 'mes') {
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+  } else {
+    return null; // período desconocido -> todo
+  }
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
 app.get('/api/dashboard', (c) => {
+  const periodo = c.req.query('periodo') || 'todo';
+  const desde = inicioDePeriodo(periodo);
+
+  // Inventario = estado ACTUAL (no depende del período)
   const productos = db.query('SELECT COUNT(*) n, COALESCE(SUM(stock_actual),0) stock FROM Productos').get();
   const inventario = db.query('SELECT COALESCE(SUM(stock_actual * precio_usd),0) valor FROM Productos').get();
-  const ventas = db.query('SELECT COUNT(*) n, COALESCE(SUM(total_usd),0) monto FROM Ventas').get();
-  const pagado = db.query('SELECT COALESCE(SUM(monto_usd),0) usd, COALESCE(SUM(monto_bs),0) bs, COUNT(*) n FROM Pagos').get();
+
+  // Ventas y abonos = MOVIEMIENTOS del período elegido
+  const ventas = desde
+    ? db.query('SELECT COUNT(*) n, COALESCE(SUM(total_usd),0) monto FROM Ventas WHERE fecha >= ?').get(desde)
+    : db.query('SELECT COUNT(*) n, COALESCE(SUM(total_usd),0) monto FROM Ventas').get();
+  const pagado = desde
+    ? db.query('SELECT COALESCE(SUM(monto_usd),0) usd, COALESCE(SUM(monto_bs),0) bs, COUNT(*) n FROM Pagos WHERE fecha_pago >= ?').get(desde)
+    : db.query('SELECT COALESCE(SUM(monto_usd),0) usd, COALESCE(SUM(monto_bs),0) bs, COUNT(*) n FROM Pagos').get();
+
+  // Por cobrar = estado ACTUAL de las deudas (siempre total)
   const porCobrar = db.query(`
     SELECT COALESCE(SUM(v.total_usd - COALESCE((SELECT SUM(p.monto_usd) FROM Pagos p WHERE p.venta_id=v.id),0)),0) saldo
     FROM Ventas v WHERE v.estado_pago != 'pagado'
   `).get();
+
   return c.json({
+    periodo,
     total_productos: productos.n,
     unidades_en_stock: productos.stock,
     valor_inventario: inventario.valor,
@@ -245,6 +281,40 @@ app.get('/api/dashboard', (c) => {
     num_abonos: pagado.n,
     total_por_cobrar: porCobrar.saldo,
   });
+});
+
+// --- Eliminar una venta (cliente registrado por error) ----------
+// Borra abonos, comprobantes e imágenes, y DEVUELVE el stock.
+app.delete('/api/ventas/:id', (c) => {
+  const id = Number(c.req.param('id'));
+  const venta = db.query('SELECT * FROM Ventas WHERE id=?').get(id);
+  if (!venta) return c.json({ error: 'Venta no encontrada' }, 404);
+
+  try {
+    const rutas = db.query(`
+      SELECT ruta_imagen_url FROM Comprobantes_Pago
+      WHERE pago_id IN (SELECT id FROM Pagos WHERE venta_id=?)
+    `).all(id);
+
+    db.exec('BEGIN');
+    db.query('DELETE FROM Comprobantes_Pago WHERE pago_id IN (SELECT id FROM Pagos WHERE venta_id=?)').run(id);
+    db.query('DELETE FROM Pagos WHERE venta_id=?').run(id);
+    db.query('DELETE FROM Ventas WHERE id=?').run(id);
+    // Devolver la mercancía al inventario
+    db.query('UPDATE Productos SET stock_actual = stock_actual + ? WHERE id=?').run(venta.cantidad, venta.producto_id);
+    db.exec('COMMIT');
+
+    // Borrar las imágenes de los comprobantes (solo el archivo de uploads)
+    for (const r of rutas) {
+      const archivo = basename(String(r.ruta_imagen_url || '').replace('/uploads/', ''));
+      if (archivo) { try { unlinkSync(join(UPLOADS_DIR, archivo)); } catch {} }
+    }
+
+    return c.json({ ok: true });
+  } catch (e) {
+    try { db.exec('ROLLBACK'); } catch {}
+    return c.json({ error: 'No se pudo eliminar: ' + e.message }, 500);
+  }
 });
 
 // ============================================================
