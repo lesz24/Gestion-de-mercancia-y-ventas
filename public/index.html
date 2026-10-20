@@ -128,12 +128,23 @@
         <button class="filtro-btn filtro-parcial" data-filtro="parcial">◐ Parcial <span class="filtro-contador" id="filtro-contador-parcial">0</span></button>
         <button class="filtro-btn filtro-pagado" data-filtro="pagado">✔ Pagado <span class="filtro-contador" id="filtro-contador-pagado">0</span></button>
       </div>
-      <p class="text-sm text-slate-500 mb-3" id="cobros-resumen"></p>
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <p class="text-sm text-slate-500" id="cobros-resumen"></p>
+        <input id="buscar-cobros" class="input w-72" placeholder="🔍 Buscar por cliente o vendedor..." />
+      </div>
       <div class="bg-white rounded-xl shadow p-6 overflow-x-auto">
         <table class="tabla">
           <thead><tr><th>#</th><th>Cliente</th><th>Vendedor</th><th>Producto</th><th>Total</th><th>Abonado</th><th>Saldo</th><th>Progreso</th><th>Estado</th><th>Acciones</th></tr></thead>
           <tbody id="tabla-cobros"></tbody>
         </table>
+        <div class="flex flex-wrap items-center justify-between gap-3 mt-4" id="paginacion-cobros">
+          <span class="text-xs text-slate-400" id="paginacion-info"></span>
+          <div class="flex items-center gap-2">
+            <button class="btn-small btn-view" id="pag-anterior" type="button">◀ Anterior</button>
+            <span class="text-sm font-semibold" id="pag-actual">1</span>
+            <button class="btn-small btn-view" id="pag-siguiente" type="button">Siguiente ▶</button>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -176,7 +187,10 @@
         <thead><tr><th>#</th><th>Fecha</th><th>USD</th><th>Bs</th><th>USDT</th><th>Tasa</th><th>Método</th><th>Nota</th><th></th></tr></thead>
         <tbody id="tabla-abonos"></tbody>
       </table>
-      <div id="contenedor-comprobantes" class="grid grid-cols-4 gap-3"></div>
+      <div id="contenedor-comprobantes-wrap" class="hidden">
+        <h4 class="font-semibold text-sm mb-2">🧾 Comprobantes <span class="text-slate-400 font-normal">(hacé clic en una imagen para verla)</span></h4>
+        <div id="contenedor-comprobantes" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
+      </div>
     </div>
   </div>
 
@@ -220,6 +234,7 @@
         </div>
 
         <label class="label">Comprobantes (opcional — si agregás uno, el nombre es obligatorio)</label>
+        <div id="lista-comprobantes-existentes" class="space-y-3 hidden"></div>
         <div id="zona-archivo" class="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center cursor-pointer hover:border-indigo-400 transition">
           <p class="text-slate-500 text-sm">🖼️ Arrastrá las capturas acá o <span class="text-indigo-600 font-semibold">hacé clic para elegir</span></p>
         </div>
@@ -228,6 +243,23 @@
 
         <button class="btn-primary w-full mt-5" type="submit" id="btn-guardar-abono">💾 Guardar abono</button>
       </form>
+    </div>
+  </div>
+
+  <!-- VISOR DE IMÁGENES (comprobantes en la misma pestaña) -->
+  <div id="visor-imagen" class="modal-overlay hidden">
+    <div class="visor-caja" id="visor-caja">
+      <img id="visor-img" src="" alt="Comprobante" />
+      <div class="visor-pie">
+        <button id="visor-anterior" class="visor-nav" type="button" title="Anterior (◀)">◀</button>
+        <div class="visor-texto">
+          <p id="visor-nombre" class="font-semibold text-white truncate"></p>
+          <p id="visor-desc" class="text-sm text-slate-300 truncate"></p>
+          <p id="visor-indice" class="text-xs text-slate-400 mt-1"></p>
+        </div>
+        <button id="visor-siguiente" class="visor-nav" type="button" title="Siguiente (▶)">▶</button>
+      </div>
+      <button id="visor-cerrar" class="visor-cerrar" type="button">✕ Cerrar</button>
     </div>
   </div>
 

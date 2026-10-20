@@ -102,6 +102,62 @@
   z-index: 50;
 }
 
+/* ---- Visor de imágenes (comprobantes en la misma pestaña) ---- */
+.visor-caja {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 94vw;
+  max-height: 94vh;
+}
+#visor-img {
+  max-width: min(94vw, 1100px);
+  max-height: 72vh;
+  object-fit: contain;
+  background: #0f172a;
+  border-radius: 0.75rem;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.55);
+}
+.visor-pie {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: min(94vw, 1100px);
+}
+.visor-texto { min-width: 0; text-align: center; max-width: 70vw; }
+.visor-nav {
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: #1e293b;
+  color: #fff;
+  border: 1px solid #334155;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.visor-nav:hover { background: #334155; }
+.visor-cerrar {
+  background: #e11d48;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.4rem 1rem;
+  border-radius: 9999px;
+  cursor: pointer;
+}
+.visor-cerrar:hover { background: #be123c; }
+
+/* Miniaturas de comprobantes: clic para abrir el visor */
+.comp-thumb { cursor: zoom-in; }
+.comp-thumb img { transition: transform 0.15s ease; }
+.comp-thumb:hover img { transform: scale(1.02); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); }
+
+/* Botones de paginación desactivados */
+#paginacion-cobros button:disabled { opacity: 0.4; cursor: not-allowed; }
+
 /* ---- Toast de notificación ---- */
 .toast {
   position: fixed;
@@ -271,6 +327,9 @@ html.dark .zona-arrastre-activa { background-color: #312e81; }
 
 /* Modal: un poco más de oscuridad en el fondo */
 html.dark .modal-overlay { background: rgba(2, 6, 23, 0.75); }
+
+/* Visor de imágenes */
+html.dark .visor-texto .text-slate-300 { color: #cbd5e1; }
 
 /* Botón de tema (separa visualmente del menú) */
 #btn-tema { border-top: 1px dashed #334155; border-radius: 0 0 0.5rem 0.5rem; margin-top: 10px; padding-top: 12px; }

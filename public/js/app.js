@@ -19,6 +19,49 @@ function toast(msg, tipo = 'ok') {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add('hidden'), 4000);
 }
 
+// ============================================================
+// VISOR DE IMÁGENES — los comprobantes se abren en la MISMA pestaña
+// ============================================================
+let visorItems = [];
+let visorPos = 0;
+
+function abrirVisor(items, pos = 0) {
+  if (!items || !items.length) return;
+  visorItems = items;
+  visorPos = Math.min(Math.max(0, pos), items.length - 1);
+  pintarVisor();
+  $('#visor-imagen').classList.remove('hidden');
+}
+function cerrarVisor() { $('#visor-imagen').classList.add('hidden'); visorItems = []; }
+function pintarVisor() {
+  const it = visorItems[visorPos];
+  if (!it) return;
+  $('#visor-img').src = it.src;
+  $('#visor-nombre').textContent = it.nombre || 'Comprobante';
+  $('#visor-desc').textContent = it.descripcion || '';
+  $('#visor-indice').textContent = visorItems.length > 1 ? `${visorPos + 1} de ${visorItems.length}` : '';
+  const varios = visorItems.length > 1;
+  $('#visor-anterior').classList.toggle('hidden', !varios);
+  $('#visor-siguiente').classList.toggle('hidden', !varios);
+}
+function moverVisor(paso) {
+  if (!visorItems.length) return;
+  visorPos = (visorPos + paso + visorItems.length) % visorItems.length;
+  pintarVisor();
+}
+$('#visor-cerrar').addEventListener('click', cerrarVisor);
+$('#visor-anterior').addEventListener('click', () => moverVisor(-1));
+$('#visor-siguiente').addEventListener('click', () => moverVisor(1));
+// Clic en el fondo oscuro = cerrar (el clic dentro de la caja no burbujea)
+$('#visor-imagen').addEventListener('click', (e) => { if (e.target.id === 'visor-imagen') cerrarVisor(); });
+$('#visor-caja').addEventListener('click', (e) => e.stopPropagation());
+document.addEventListener('keydown', (e) => {
+  if ($('#visor-imagen').classList.contains('hidden')) return;
+  if (e.key === 'Escape') cerrarVisor();
+  else if (e.key === 'ArrowLeft') moverVisor(-1);
+  else if (e.key === 'ArrowRight') moverVisor(1);
+});
+
 // --- Tasa BCV global ---
 let tasaBCV = null;
 async function cargarTasa() {
@@ -191,11 +234,27 @@ async function cargarCobros() {
 
 let cobrosTodas = [];
 let filtroEstado = 'todos';
+let terminoCobros = '';   // texto del buscador por cliente / vendedor
+let paginaCobros = 1;     // página actual de la lista de clientes
+const COBROS_POR_PAGINA = 10;
+
+// Quita acentos y pasa a minúsculas para que "jose" encuentre "José"
+const normalizar = (s) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
 function renderCobros() {
   const pendientes = cobrosTodas.filter((v) => v.estado_pago !== 'pagado');
   const pagadas = cobrosTodas.filter((v) => v.estado_pago === 'pagado');
-  const lista = filtroEstado === 'todos' ? cobrosTodas : cobrosTodas.filter((v) => v.estado_pago === filtroEstado);
+  const porEstado = filtroEstado === 'todos' ? cobrosTodas : cobrosTodas.filter((v) => v.estado_pago === filtroEstado);
+
+  // Buscador por nombre de cliente o de vendedor
+  const q = normalizar(terminoCobros.trim());
+  const listaCompleta = porEstado.filter((v) => !q || normalizar(v.cliente_nombre).includes(q) || normalizar(v.vendedor).includes(q));
+
+  // Paginación de la lista de clientes
+  const totalPaginas = Math.max(1, Math.ceil(listaCompleta.length / COBROS_POR_PAGINA));
+  if (paginaCobros > totalPaginas) paginaCobros = totalPaginas;
+  const inicio = (paginaCobros - 1) * COBROS_POR_PAGINA;
+  const lista = listaCompleta.slice(inicio, inicio + COBROS_POR_PAGINA);
 
   // Contadores de cada botón de filtro
   $('#filtro-contador-todos').textContent = cobrosTodas.length;
@@ -203,14 +262,25 @@ function renderCobros() {
   $('#filtro-contador-parcial').textContent = cobrosTodas.filter((v) => v.estado_pago === 'parcial').length;
   $('#filtro-contador-pagado').textContent = pagadas.length;
 
-  $('#cobros-resumen').innerHTML = `<b>${pendientes.length}</b> por cobrar · <b>${pagadas.length}</b> pagadas`;
+  $('#cobros-resumen').innerHTML = `<b>${pendientes.length}</b> por cobrar · <b>${pagadas.length}</b> pagadas`
+    + (q ? ` · <b>${listaCompleta.length}</b> coinciden con “${esc(terminoCobros.trim())}”` : '');
 
-  const vacio = {
-    todos: cobrosTodas.length ? '' : '🎉 No hay ventas registradas',
-    pendiente: '🎉 No hay ventas pendientes',
-    parcial: '🎉 No hay ventas con abono parcial',
-    pagado: '🎉 No hay ventas pagadas todavía',
-  }[filtroEstado];
+  // Controles de paginación
+  $('#pag-actual').textContent = `${paginaCobros} / ${totalPaginas}`;
+  $('#paginacion-info').textContent = listaCompleta.length
+    ? `Mostrando ${inicio + 1}–${inicio + lista.length} de ${listaCompleta.length} cliente(s)`
+    : '';
+  $('#pag-anterior').disabled = paginaCobros <= 1;
+  $('#pag-siguiente').disabled = paginaCobros >= totalPaginas;
+
+  const vacio = q
+    ? '🔍 No se encontraron clientes con ese nombre'
+    : {
+      todos: cobrosTodas.length ? '' : '🎉 No hay ventas registradas',
+      pendiente: '🎉 No hay ventas pendientes',
+      parcial: '🎉 No hay ventas con abono parcial',
+      pagado: '🎉 No hay ventas pagadas todavía',
+    }[filtroEstado];
 
   $('#tabla-cobros').innerHTML = lista.length
     ? lista.map((v) => {
@@ -258,9 +328,21 @@ document.querySelectorAll('.filtro-btn').forEach((btn) => {
     document.querySelectorAll('.filtro-btn').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
     filtroEstado = btn.dataset.filtro;
+    paginaCobros = 1;
     renderCobros();
   });
 });
+
+// Buscador por nombre de cliente o vendedor
+$('#buscar-cobros').addEventListener('input', (e) => {
+  terminoCobros = e.target.value;
+  paginaCobros = 1;
+  renderCobros();
+});
+
+// Paginación de la lista de clientes
+$('#pag-anterior').addEventListener('click', () => { if (paginaCobros > 1) { paginaCobros--; renderCobros(); } });
+$('#pag-siguiente').addEventListener('click', () => { paginaCobros++; renderCobros(); });
 
 let ventaActual = null;
 async function verVenta(id) {
@@ -301,15 +383,27 @@ async function verVenta(id) {
       </tr>`).join('')
     : `<tr><td colspan="9" class="text-center text-slate-400 py-4">Todavía no hay abonos</td></tr>`;
 
-  $('#contenedor-comprobantes').innerHTML = '';
+  // Galería con TODOS los comprobantes de la venta (clic → visor en la misma pestaña)
+  const todosComprobantes = [];
+  v.pagos.forEach((p, i) => (p.comprobantes || []).forEach((c) => todosComprobantes.push({
+    src: c.ruta_imagen_url,
+    nombre: c.nombre,
+    sub: `Abono #${i + 1} — $ ${money(p.monto_usd)}`,
+    descripcion: `${c.descripcion ? c.descripcion + ' · ' : ''}Abono #${i + 1} — $ ${money(p.monto_usd)}`,
+  })));
+  $('#contenedor-comprobantes-wrap').classList.toggle('hidden', !todosComprobantes.length);
+  $('#contenedor-comprobantes').innerHTML = todosComprobantes.map((c, i) => `<div class="text-center comp-thumb" data-ver-comp="${i}">
+      <img src="${c.src}" class="w-full h-32 object-cover rounded-lg border" />
+      <p class="text-xs font-semibold mt-1 truncate">${esc(c.nombre)}</p>
+      <p class="text-xs text-slate-400 truncate">${esc(c.sub)}</p>
+    </div>`).join('');
+  document.querySelectorAll('[data-ver-comp]').forEach((b) =>
+    b.addEventListener('click', () => abrirVisor(todosComprobantes, +b.dataset.verComp)));
 
+  // El botón 🧾 de cada abono abre el visor con los comprobantes de ESE abono
   document.querySelectorAll('[data-comp]').forEach((b) => b.addEventListener('click', () => {
     const comps = JSON.parse(b.dataset.comp);
-    $('#contenedor-comprobantes').innerHTML = comps.map((c) => `<div class="text-center">
-      <a href="${c.ruta_imagen_url}" target="_blank"><img src="${c.ruta_imagen_url}" class="w-full h-32 object-cover rounded-lg border" /></a>
-      <p class="text-xs font-semibold mt-1">${esc(c.nombre)}</p>
-      <p class="text-xs text-slate-400">${esc(c.descripcion)}</p>
-    </div>`).join('');
+    abrirVisor(comps.map((c) => ({ src: c.ruta_imagen_url, nombre: c.nombre, descripcion: c.descripcion })), 0);
   }));
 
   document.querySelectorAll('[data-editar-abono]').forEach((b) => b.addEventListener('click', () => {
@@ -341,10 +435,15 @@ $('#btn-nuevo-abono').addEventListener('click', () => abrirModalAbono(ventaActua
 // ============================================================
 let archivosSeleccionados = [];
 let abonoEditandoId = null; // id del abono que se está editando (null = nuevo)
+let comprobantesExistentes = []; // comprobantes ya guardados del abono en edición
+let comprobantesQuitar = [];     // ids de comprobantes marcados para borrar
 
 function abrirModalAbono(saldo, pago = null) {
   archivosSeleccionados = [];
   abonoEditandoId = pago ? pago.id : null;
+  // Al editar: arrastramos los comprobantes ya registrados para poder quitarlos o renombrarlos
+  comprobantesExistentes = pago ? (pago.comprobantes || []).map((c) => ({ ...c, nombre: c.nombre || '', descripcion: c.descripcion || '' })) : [];
+  comprobantesQuitar = [];
   $('#abono-titulo').textContent = pago ? '✏️ Editar abono' : '💳 Registrar abono';
   $('#btn-guardar-abono').textContent = pago ? '💾 Guardar cambios' : '💾 Guardar abono';
   $('#abono-saldo-texto').textContent = pago ? 'Saldo disponible:' : 'Saldo pendiente:';
@@ -365,9 +464,10 @@ function abrirModalAbono(saldo, pago = null) {
     $('#abono-nota').value = '';
   }
   $('#lista-archivos').innerHTML = '';
+  pintarComprobantesExistentes();
   $('#modal-abono').classList.remove('hidden');
 }
-$('#cerrar-modal-abono').addEventListener('click', () => { abonoEditandoId = null; $('#modal-abono').classList.add('hidden'); });
+$('#cerrar-modal-abono').addEventListener('click', () => { abonoEditandoId = null; comprobantesExistentes = []; comprobantesQuitar = []; $('#modal-abono').classList.add('hidden'); });
 
 // Conversión entre USD y Bs con la tasa BCV.
 // El campo USDT es totalmente independiente: se carga manualmente
@@ -401,24 +501,54 @@ function agregarArchivos(files) {
 function pintarArchivos() {
   $('#lista-archivos').innerHTML = archivosSeleccionados.map((a, i) => `<div class="border rounded-lg p-3">
     <div class="flex gap-3">
-      <img src="${URL.createObjectURL(a.file)}" class="w-16 h-16 object-cover rounded-lg border shrink-0" />
+      <img src="${URL.createObjectURL(a.file)}" class="w-16 h-16 object-cover rounded-lg border shrink-0 comp-thumb" data-ver-nuevo="${i}" title="Ver imagen" />
       <div class="flex-1 space-y-2">
         <input class="input comp-nombre" data-i="${i}" placeholder="Nombre del comprobante *" value="${esc(a.nombre)}" />
         <input class="input comp-desc" data-i="${i}" placeholder="Descripción (opcional)" value="${esc(a.descripcion)}" />
       </div>
-      <button type="button" class="text-rose-500 text-lg" data-sacar="${i}">✕</button>
+      <button type="button" class="text-rose-500 text-lg" data-sacar="${i}" title="Quitar comprobante">✕</button>
     </div>
   </div>`).join('');
   document.querySelectorAll('.comp-nombre').forEach((el) => el.addEventListener('input', (e) => { archivosSeleccionados[+e.target.dataset.i].nombre = e.target.value; }));
   document.querySelectorAll('.comp-desc').forEach((el) => el.addEventListener('input', (e) => { archivosSeleccionados[+e.target.dataset.i].descripcion = e.target.value; }));
   document.querySelectorAll('[data-sacar]').forEach((b) => b.addEventListener('click', () => { archivosSeleccionados.splice(+b.dataset.sacar, 1); pintarArchivos(); }));
+  document.querySelectorAll('[data-ver-nuevo]').forEach((b) => b.addEventListener('click', () =>
+    abrirVisor(archivosSeleccionados.map((x) => ({ src: URL.createObjectURL(x.file), nombre: x.nombre || 'Comprobante', descripcion: x.descripcion })), +b.dataset.verNuevo)));
+}
+
+// Comprobantes YA guardados del abono que se está editando:
+// se pueden ver, renombrar y quitar antes de guardar los cambios.
+function pintarComprobantesExistentes() {
+  const cont = $('#lista-comprobantes-existentes');
+  cont.classList.toggle('hidden', !comprobantesExistentes.length);
+  cont.innerHTML = comprobantesExistentes.map((c, i) => `<div class="border rounded-lg p-3 bg-slate-50">
+    <div class="flex gap-3">
+      <img src="${c.ruta_imagen_url}" class="w-16 h-16 object-cover rounded-lg border shrink-0 comp-thumb" data-ver-existente="${i}" title="Ver imagen" />
+      <div class="flex-1 space-y-2">
+        <input class="input comp-ex-nombre" data-i="${i}" placeholder="Nombre del comprobante *" value="${esc(c.nombre)}" />
+        <input class="input comp-ex-desc" data-i="${i}" placeholder="Descripción (opcional)" value="${esc(c.descripcion)}" />
+      </div>
+      <button type="button" class="text-rose-500 text-lg" data-quitar-existente="${i}" title="Quitar este comprobante">✕</button>
+    </div>
+  </div>`).join('');
+  cont.querySelectorAll('.comp-ex-nombre').forEach((el) => el.addEventListener('input', (e) => { comprobantesExistentes[+e.target.dataset.i].nombre = e.target.value; }));
+  cont.querySelectorAll('.comp-ex-desc').forEach((el) => el.addEventListener('input', (e) => { comprobantesExistentes[+e.target.dataset.i].descripcion = e.target.value; }));
+  cont.querySelectorAll('[data-quitar-existente]').forEach((b) => b.addEventListener('click', () => {
+    const i = +b.dataset.quitarExistente;
+    const comp = comprobantesExistentes[i];
+    if (comp && comp.id != null) comprobantesQuitar.push(comp.id);
+    comprobantesExistentes.splice(i, 1);
+    pintarComprobantesExistentes();
+  }));
+  cont.querySelectorAll('[data-ver-existente]').forEach((b) => b.addEventListener('click', () =>
+    abrirVisor(comprobantesExistentes.map((x) => ({ src: x.ruta_imagen_url, nombre: x.nombre || 'Comprobante', descripcion: x.descripcion })), +b.dataset.verExistente)));
 }
 
 $('#form-abono').addEventListener('submit', async (e) => {
   e.preventDefault();
   const montoUsd = Number($('#abono-usd').value);
   if (!montoUsd || montoUsd <= 0) return toast('Ingresá un monto mayor a 0', 'error');
-  const sinNombre = archivosSeleccionados.find((a) => !a.nombre.trim());
+  const sinNombre = [...archivosSeleccionados, ...comprobantesExistentes].find((a) => !a.nombre.trim());
   if (sinNombre) return toast('Cada comprobante necesita un nombre', 'error');
 
   const fd = new FormData();
@@ -433,6 +563,13 @@ $('#form-abono').addEventListener('submit', async (e) => {
     fd.append('comprobante_nombre', a.nombre.trim());
     fd.append('comprobante_descripcion', a.descripcion.trim());
   });
+  // Al editar: comprobantes a quitar y datos actualizados de los que se conservan
+  comprobantesQuitar.forEach((id) => fd.append('comprobante_quitar', id));
+  if (abonoEditandoId && comprobantesExistentes.length) {
+    fd.append('comprobante_meta', JSON.stringify(comprobantesExistentes.map((c) => ({
+      id: c.id, nombre: c.nombre.trim(), descripcion: (c.descripcion || '').trim(),
+    }))));
+  }
   try {
     const url = abonoEditandoId ? `/api/abonos/${abonoEditandoId}` : `/api/ventas/${ventaActual.id}/abonos`;
     const r = await fetch(url, { method: abonoEditandoId ? 'PUT' : 'POST', body: fd });

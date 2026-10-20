@@ -257,6 +257,19 @@ app.put('/api/abonos/:id', async (c) => {
   try { comprobantes = await guardarComprobantesNuevos(formData); }
   catch (e) { return c.json({ error: e.message }, 400); }
 
+  // Comprobantes marcados para quitar (ids) y datos de los que se conservan
+  const quitarIds = formData.getAll('comprobante_quitar').map(Number).filter(Number.isFinite);
+  let metaComprobantes = [];
+  const metaRaw = formData.get('comprobante_meta');
+  if (metaRaw) {
+    try { metaComprobantes = JSON.parse(metaRaw); } catch { return c.json({ error: 'Datos de comprobantes inválidos' }, 400); }
+  }
+  for (const m of metaComprobantes) {
+    if (!m || !String(m.nombre || '').trim()) return c.json({ error: 'Cada comprobante necesita un nombre' }, 400);
+  }
+
+  const archivosABorrar = [];
+  let estado = null;
   try {
     db.exec('BEGIN');
     const usdtLimpio = Number.isFinite(montoUsdt) && montoUsdt > 0 ? montoUsdt : null;
@@ -266,15 +279,34 @@ app.put('/api/abonos/:id', async (c) => {
       db.query('INSERT INTO Comprobantes_Pago (pago_id, nombre, descripcion, ruta_imagen_url) VALUES (?,?,?,?)')
         .run(pago.id, comp.nombre, comp.descripcion, comp.ruta);
     }
-    const estado = recalcularEstado(pago.venta_id);
+    // Quitar los comprobantes marcados (solo de ESTE abono)
+    if (quitarIds.length) {
+      const existentes = db.query('SELECT * FROM Comprobantes_Pago WHERE pago_id=?').all(pago.id);
+      for (const f of existentes) {
+        if (!quitarIds.includes(f.id)) continue;
+        db.query('DELETE FROM Comprobantes_Pago WHERE id=?').run(f.id);
+        const archivo = basename(String(f.ruta_imagen_url || '').replace('/uploads/', ''));
+        if (archivo) archivosABorrar.push(archivo);
+      }
+    }
+    // Actualizar nombre / descripción de los comprobantes que se conservan
+    for (const m of metaComprobantes) {
+      if (quitarIds.includes(Number(m.id))) continue;
+      db.query('UPDATE Comprobantes_Pago SET nombre=?, descripcion=? WHERE id=? AND pago_id=?')
+        .run(String(m.nombre).trim(), String(m.descripcion || '').trim(), Number(m.id), pago.id);
+    }
+    estado = recalcularEstado(pago.venta_id);
     db.exec('COMMIT');
-
-    const abonado = db.query('SELECT COALESCE(SUM(monto_usd),0) a FROM Pagos WHERE venta_id=?').get(pago.venta_id).a;
-    return c.json({ ok: true, estado_venta: estado, abonado_usd: abonado, saldo_usd: Math.max(0, venta.total_usd - abonado) });
   } catch (e) {
     try { db.exec('ROLLBACK'); } catch {}
     return c.json({ error: 'No se pudo editar: ' + e.message }, 500);
   }
+
+  // Borra las imágenes quitadas del disco (recién tras el COMMIT)
+  for (const archivo of archivosABorrar) { try { unlinkSync(join(UPLOADS_DIR, archivo)); } catch {} }
+
+  const abonado = db.query('SELECT COALESCE(SUM(monto_usd),0) a FROM Pagos WHERE venta_id=?').get(pago.venta_id).a;
+  return c.json({ ok: true, estado_venta: estado, abonado_usd: abonado, saldo_usd: Math.max(0, venta.total_usd - abonado) });
 });
 
 // Borrar un abono (deshacer)
