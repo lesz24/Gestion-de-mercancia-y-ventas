@@ -160,6 +160,26 @@ app.post('/api/ventas', async (c) => {
 });
 
 // --- ABONOS -----------------------------------------------------
+// Guarda los archivos de comprobantes subidos en un FormData.
+// Devuelve [{nombre, descripcion, ruta}] o lanza Error si falta un nombre.
+async function guardarComprobantesNuevos(formData) {
+  const comprobantes = [];
+  const files = formData.getAll('comprobantes').filter((f) => typeof f === 'object' && f && f.size > 0);
+  const nombres = formData.getAll('comprobante_nombre');
+  const descripciones = formData.getAll('comprobante_descripcion');
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const nombre = String(nombres[i] || file.name || '').trim();
+    if (!nombre) throw new Error('Cada comprobante necesita un nombre');
+    const descripcion = String(descripciones[i] || '');
+    const ext = (file.name || 'png').split('.').pop();
+    const filename = `${Date.now()}-${randomBytes(4).toString('hex')}.${ext}`;
+    writeFileSync(join(UPLOADS_DIR, filename), Buffer.from(await file.arrayBuffer()));
+    comprobantes.push({ nombre, descripcion, ruta: `/uploads/${filename}` });
+  }
+  return comprobantes;
+}
+
 // Registrar un abono (con nota opcional y comprobantes con nombre)
 app.post('/api/ventas/:id/abonos', async (c) => {
   const ventaId = c.req.param('id');
@@ -186,20 +206,9 @@ app.post('/api/ventas/:id/abonos', async (c) => {
   }
 
   // Guardar imágenes
-  const comprobantes = [];
-  const files = formData.getAll('comprobantes').filter((f) => typeof f === 'object' && f && f.size > 0);
-  const nombres = formData.getAll('comprobante_nombre');
-  const descripciones = formData.getAll('comprobante_descripcion');
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    const nombre = String(nombres[i] || file.name || '').trim();
-    if (!nombre) return c.json({ error: 'Cada comprobante necesita un nombre' }, 400);
-    const descripcion = String(descripciones[i] || '');
-    const ext = (file.name || 'png').split('.').pop();
-    const filename = `${Date.now()}-${randomBytes(4).toString('hex')}.${ext}`;
-    writeFileSync(join(UPLOADS_DIR, filename), Buffer.from(await file.arrayBuffer()));
-    comprobantes.push({ nombre, descripcion, ruta: `/uploads/${filename}` });
-  }
+  let comprobantes = [];
+  try { comprobantes = await guardarComprobantesNuevos(formData); }
+  catch (e) { return c.json({ error: e.message }, 400); }
 
   db.exec('BEGIN');
   const usdtLimpio = Number.isFinite(montoUsdt) && montoUsdt > 0 ? montoUsdt : null;
@@ -215,6 +224,57 @@ app.post('/api/ventas/:id/abonos', async (c) => {
   db.exec('COMMIT');
 
   return c.json({ ok: true, id: vr.lastInsertRowid, estado_venta: estado, abonado_usd: nuevoAbonado, saldo_usd: Math.max(0, venta.total_usd - nuevoAbonado) });
+});
+
+// Editar un abono (monto, método, nota; los comprobantes nuevos se agregan)
+app.put('/api/abonos/:id', async (c) => {
+  const pago = db.query('SELECT * FROM Pagos WHERE id=?').get(c.req.param('id'));
+  if (!pago) return c.json({ error: 'Abono no encontrado' }, 404);
+  const venta = db.query('SELECT * FROM Ventas WHERE id=?').get(pago.venta_id);
+  if (!venta) return c.json({ error: 'Venta no encontrada' }, 404);
+
+  const formData = await c.req.formData();
+  const montoUsd = Number(formData.get('monto_usd'));
+  const montoBs = formData.get('monto_bs') ? Number(formData.get('monto_bs')) : null;
+  const montoUsdt = formData.get('monto_usdt') ? Number(formData.get('monto_usdt')) : null;
+  const tasaBcv = formData.get('tasa_bcv') ? Number(formData.get('tasa_bcv')) : null;
+  const metodoPago = formData.get('metodo_pago') || '';
+  const nota = formData.get('nota') || '';
+
+  if (!Number.isFinite(montoUsd) || montoUsd <= 0) {
+    return c.json({ error: 'El monto del abono debe ser mayor a 0' }, 400);
+  }
+
+  // El nuevo monto no puede superar el total menos los OTROS abonos de la venta
+  const abonadoOtros = db.query('SELECT COALESCE(SUM(monto_usd),0) a FROM Pagos WHERE venta_id=? AND id!=?').get(pago.venta_id, pago.id).a;
+  const disponible = venta.total_usd - abonadoOtros;
+  if (montoUsd - disponible > EPS) {
+    return c.json({ error: `El abono ($${montoUsd.toFixed(2)}) supera el saldo disponible ($${disponible.toFixed(2)})` }, 400);
+  }
+
+  // Nuevos comprobantes (los ya registrados se conservan)
+  let comprobantes = [];
+  try { comprobantes = await guardarComprobantesNuevos(formData); }
+  catch (e) { return c.json({ error: e.message }, 400); }
+
+  try {
+    db.exec('BEGIN');
+    const usdtLimpio = Number.isFinite(montoUsdt) && montoUsdt > 0 ? montoUsdt : null;
+    db.query('UPDATE Pagos SET monto_usd=?, monto_bs=?, monto_usdt=?, tasa_bcv=?, metodo_pago=?, nota=? WHERE id=?')
+      .run(Number(montoUsd.toFixed(4)), montoBs, usdtLimpio, tasaBcv, metodoPago, nota, pago.id);
+    for (const comp of comprobantes) {
+      db.query('INSERT INTO Comprobantes_Pago (pago_id, nombre, descripcion, ruta_imagen_url) VALUES (?,?,?,?)')
+        .run(pago.id, comp.nombre, comp.descripcion, comp.ruta);
+    }
+    const estado = recalcularEstado(pago.venta_id);
+    db.exec('COMMIT');
+
+    const abonado = db.query('SELECT COALESCE(SUM(monto_usd),0) a FROM Pagos WHERE venta_id=?').get(pago.venta_id).a;
+    return c.json({ ok: true, estado_venta: estado, abonado_usd: abonado, saldo_usd: Math.max(0, venta.total_usd - abonado) });
+  } catch (e) {
+    try { db.exec('ROLLBACK'); } catch {}
+    return c.json({ error: 'No se pudo editar: ' + e.message }, 500);
+  }
 });
 
 // Borrar un abono (deshacer)
@@ -267,8 +327,8 @@ app.get('/api/dashboard', (c) => {
     ? db.query('SELECT COUNT(*) n, COALESCE(SUM(total_usd),0) monto FROM Ventas WHERE fecha >= ?').get(desde)
     : db.query('SELECT COUNT(*) n, COALESCE(SUM(total_usd),0) monto FROM Ventas').get();
   const pagado = desde
-    ? db.query('SELECT COALESCE(SUM(monto_usd),0) usd, COALESCE(SUM(monto_bs),0) bs, COUNT(*) n FROM Pagos WHERE fecha_pago >= ?').get(desde)
-    : db.query('SELECT COALESCE(SUM(monto_usd),0) usd, COALESCE(SUM(monto_bs),0) bs, COUNT(*) n FROM Pagos').get();
+    ? db.query('SELECT COALESCE(SUM(monto_usd),0) usd, COALESCE(SUM(monto_bs),0) bs, COALESCE(SUM(monto_usdt),0) usdt, COUNT(*) n FROM Pagos WHERE fecha_pago >= ?').get(desde)
+    : db.query('SELECT COALESCE(SUM(monto_usd),0) usd, COALESCE(SUM(monto_bs),0) bs, COALESCE(SUM(monto_usdt),0) usdt, COUNT(*) n FROM Pagos').get();
 
   // Por cobrar = estado ACTUAL de las deudas (siempre total)
   const porCobrar = db.query(`
@@ -285,6 +345,7 @@ app.get('/api/dashboard', (c) => {
     monto_total_ventas: ventas.monto,
     pagado_usd: pagado.usd,
     pagado_bs: pagado.bs,
+    pagado_usdt: pagado.usdt,
     num_abonos: pagado.n,
     total_por_cobrar: porCobrar.saldo,
   });

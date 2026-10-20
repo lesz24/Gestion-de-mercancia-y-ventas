@@ -82,7 +82,7 @@ async function cargarDashboard() {
     <div class="tarjeta"><p class="titulo">Total ventas</p><p class="valor">${d.total_ventas}</p><p class="titulo">$ ${money(d.monto_total_ventas)}</p></div>
     <div class="tarjeta"><p class="titulo">Abonado USD</p><p class="valor" style="color:#059669">$ ${money(d.pagado_usd)}</p><p class="titulo">${d.num_abonos} abonos</p></div>
     <div class="tarjeta"><p class="titulo">Abonado Bs</p><p class="valor" style="color:#0369a1">${money(d.pagado_bs)}</p></div>
-    <div class="tarjeta"><p class="titulo">Tasa BCV actual</p><p class="valor" style="color:#4f46e5">${tasaBCV ? tasaBCV.toLocaleString() : '—'}</p></div>`;
+    <div class="tarjeta"><p class="titulo">Abonado USDT</p><p class="valor" style="color:#0d9488">${money(d.pagado_usdt)}</p></div>`;
 }
 
 // Filtro de período del dashboard
@@ -295,7 +295,8 @@ async function verVenta(id) {
         <td class="text-xs text-slate-500">${esc(p.nota) || '—'}</td>
         <td class="space-x-1 whitespace-nowrap">
           ${p.comprobantes.length ? `<button class="btn-small btn-view" data-comp='${esc(JSON.stringify(p.comprobantes))}'>🧾 ${p.comprobantes.length}</button>` : ''}
-          <button class="btn-small btn-pay" data-borrar-abono="${p.id}">🗑️</button>
+          <button class="btn-small btn-view" data-editar-abono="${p.id}" title="Editar abono">✏️</button>
+          <button class="btn-small btn-pay" data-borrar-abono="${p.id}" title="Eliminar abono">🗑️</button>
         </td>
       </tr>`).join('')
     : `<tr><td colspan="9" class="text-center text-slate-400 py-4">Todavía no hay abonos</td></tr>`;
@@ -309,6 +310,12 @@ async function verVenta(id) {
       <p class="text-xs font-semibold mt-1">${esc(c.nombre)}</p>
       <p class="text-xs text-slate-400">${esc(c.descripcion)}</p>
     </div>`).join('');
+  }));
+
+  document.querySelectorAll('[data-editar-abono]').forEach((b) => b.addEventListener('click', () => {
+    const pago = v.pagos.find((x) => String(x.id) === String(b.dataset.editarAbono));
+    // Al editar, el monto de ESTE abono vuelve a estar disponible
+    if (pago) abrirModalAbono(v.saldo_usd + pago.monto_usd, pago);
   }));
 
   document.querySelectorAll('[data-borrar-abono]').forEach((b) => b.addEventListener('click', async () => {
@@ -330,22 +337,37 @@ $('#btn-eliminar-venta').addEventListener('click', async () => {
 $('#btn-nuevo-abono').addEventListener('click', () => abrirModalAbono(ventaActual.saldo_usd));
 
 // ============================================================
-// MODAL DE ABONO
+// MODAL DE ABONO (registra nuevo o edita uno existente)
 // ============================================================
 let archivosSeleccionados = [];
+let abonoEditandoId = null; // id del abono que se está editando (null = nuevo)
 
-function abrirModalAbono(saldo) {
+function abrirModalAbono(saldo, pago = null) {
   archivosSeleccionados = [];
+  abonoEditandoId = pago ? pago.id : null;
+  $('#abono-titulo').textContent = pago ? '✏️ Editar abono' : '💳 Registrar abono';
+  $('#btn-guardar-abono').textContent = pago ? '💾 Guardar cambios' : '💾 Guardar abono';
+  $('#abono-saldo-texto').textContent = pago ? 'Saldo disponible:' : 'Saldo pendiente:';
   $('#abono-saldo').textContent = '$ ' + money(saldo);
   $('#abono-tasa-label').textContent = tasaBCV ? `Bs ${tasaBCV.toLocaleString()}` : 'sin tasa';
-  $('#abono-usd').value = saldo.toFixed(2);
-  $('#abono-bs').value = tasaBCV ? (saldo * tasaBCV).toFixed(2) : '';
-  $('#abono-usdt').value = ''; // USDT: carga manual, no se calcula
-  $('#abono-nota').value = '';
+  if (pago) {
+    // Editar: cargamos los datos tal como se registraron
+    $('#abono-usd').value = Number(pago.monto_usd).toFixed(2);
+    $('#abono-bs').value = pago.monto_bs != null ? Number(pago.monto_bs).toFixed(2) : '';
+    $('#abono-usdt').value = pago.monto_usdt != null ? Number(pago.monto_usdt).toFixed(2) : '';
+    $('#abono-metodo').value = pago.metodo_pago || 'transferencia';
+    $('#abono-nota').value = pago.nota || '';
+  } else {
+    $('#abono-usd').value = saldo.toFixed(2);
+    $('#abono-bs').value = tasaBCV ? (saldo * tasaBCV).toFixed(2) : '';
+    $('#abono-usdt').value = ''; // USDT: carga manual, no se calcula
+    $('#abono-metodo').value = 'transferencia';
+    $('#abono-nota').value = '';
+  }
   $('#lista-archivos').innerHTML = '';
   $('#modal-abono').classList.remove('hidden');
 }
-$('#cerrar-modal-abono').addEventListener('click', () => $('#modal-abono').classList.add('hidden'));
+$('#cerrar-modal-abono').addEventListener('click', () => { abonoEditandoId = null; $('#modal-abono').classList.add('hidden'); });
 
 // Conversión entre USD y Bs con la tasa BCV.
 // El campo USDT es totalmente independiente: se carga manualmente
@@ -412,10 +434,12 @@ $('#form-abono').addEventListener('submit', async (e) => {
     fd.append('comprobante_descripcion', a.descripcion.trim());
   });
   try {
-    const r = await fetch(`/api/ventas/${ventaActual.id}/abonos`, { method: 'POST', body: fd });
+    const url = abonoEditandoId ? `/api/abonos/${abonoEditandoId}` : `/api/ventas/${ventaActual.id}/abonos`;
+    const r = await fetch(url, { method: abonoEditandoId ? 'PUT' : 'POST', body: fd });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || 'Error');
-    toast(`Abono registrado — venta ${d.estado_venta}`);
+    toast(abonoEditandoId ? 'Abono actualizado ✔' : `Abono registrado — venta ${d.estado_venta}`);
+    abonoEditandoId = null;
     $('#modal-abono').classList.add('hidden');
     verVenta(ventaActual.id); cargarCobros(); cargarDashboard();
   } catch (err) { toast(err.message, 'error'); }

@@ -184,10 +184,10 @@
   <div id="modal-abono" class="modal-overlay hidden">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-6 max-h-[92vh] overflow-y-auto">
       <div class="flex justify-between items-center mb-4">
-        <h3 class="font-bold text-lg">💳 Registrar abono</h3>
+        <h3 class="font-bold text-lg" id="abono-titulo">💳 Registrar abono</h3>
         <button id="cerrar-modal-abono" class="text-slate-400 hover:text-slate-700 text-xl">✕</button>
       </div>
-      <p class="text-sm text-slate-500 mb-4">Saldo pendiente: <b class="text-rose-500" id="abono-saldo"></b></p>
+      <p class="text-sm text-slate-500 mb-4"><span id="abono-saldo-texto">Saldo pendiente:</span> <b class="text-rose-500" id="abono-saldo"></b></p>
       <form id="form-abono">
         <div class="grid grid-cols-3 gap-3 mb-3">
           <div>
@@ -226,7 +226,7 @@
         <input type="file" id="input-archivos" accept="image/*" multiple class="hidden" />
         <div id="lista-archivos" class="space-y-3 mt-3"></div>
 
-        <button class="btn-primary w-full mt-5" type="submit">💾 Guardar abono</button>
+        <button class="btn-primary w-full mt-5" type="submit" id="btn-guardar-abono">💾 Guardar abono</button>
       </form>
     </div>
   </div>
